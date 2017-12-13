@@ -20,9 +20,11 @@ commander
 	.option('--ignore-error', 'keep running when having uncaught exception')
 	.parse(process.argv);
 
+
+//--algolist
 if(commander.algolist){//list all available algorithms
 	console.log(require('crypto').getCiphers().join('\n'));
-	process.exit(0);
+	return;
 }
 
 const Log=commander.L;

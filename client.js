@@ -32,9 +32,9 @@ commander
 	.option('--connectionForUDP', 'create a connection for all udp request')
 	.parse(process.argv);
 
+//--algolist
 if(commander.algolist){//list all available algorithms
 	console.log(require('crypto').getCiphers().join('\n'));
-	process.exit(0);
 	return;
 }
 
