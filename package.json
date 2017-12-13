@@ -1,0 +1,35 @@
+{
+  "name": "dangoco",
+  "version": "0.0.2",
+  "description": "A proxy uses websocket",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/dangoco/dangoco.git"
+  },
+  "keywords": [
+    "websocket",
+    "proxy"
+  ],
+  "bin": {
+    "dangocoServer": "./server.js",
+    "dangocoClient": "./client.js"
+  },
+  "author": "gohanwotabe@gmail.com",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/dangoco/dangoco/issues"
+  },
+  "homepage": "https://github.com/dangoco/dangoco#readme",
+  "dependencies": {
+    "byte-size": "^4.0.2",
+    "commander": "^2.11.0",
+    "ip": "^1.1.5",
+    "ip-address": "^5.8.8",
+    "socks5server": "^3.1.4",
+    "ws-stream-tunnel": "^0.4.3"
+  }
+}
