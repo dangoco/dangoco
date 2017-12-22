@@ -13,11 +13,9 @@ commander
 	//server options
 	.option('-s, --server [value]', 'server address. example: ws://127.0.0.1:80')
 	.option('-S, --socks [value]', 'listen on the address for socks proxy. example: 127.0.0.1:1080')
-
 	//user options
 	.option('-u, --user [value]', 'username')
 	.option('-p, --pass [value]', 'password')
-
 	//connections options
 	.option('-a, --algo [value]', 'encryption algorithm,defaults to undefined. This should only be set in the insecurity connection')
 	.option('--algolist', 'list all available algorithms')
@@ -30,11 +28,19 @@ commander
 	.option('--connectionPerTCP', 'create a connection for every tcp request')
 	.option('--connectionPerUDP', 'create a connection for every udp request')
 	.option('--connectionForUDP', 'create a connection for all udp request')
+	//other
+	.option('-v', 'display the version')
 	.parse(process.argv);
 
 //--algolist
 if(commander.algolist){//list all available algorithms
 	console.log(require('crypto').getCiphers().join('\n'));
+	return;
+}
+//-v
+if(commander.V){//display the version
+	let v=require('./package.json').version;
+	console.log(`dangoco version: ${v}`);
 	return;
 }
 
