@@ -20,14 +20,15 @@ dangocoClient -s ws://example.com/xxx -u dango -p test -S 0.0.0.0:1080  -a aes-2
 # -S 0.0.0.0:1080				start a client listening on 0.0.0.0:1080 for socks5 connections 
 # -s ws://example.com/xxx 		and use ws://example.com/xxx as the proxy server
 # -u dango -p test 				the username is dango and the password is test
-# -a aes-256-cfb 				using an encryption algorithm aes-256-cfb cause it is an insecurity connection
+# -a aes-256-cfb 				using an encryption algorithm aes-256-cfb cause it is an insecure connection
+# 								wss(websocket with https) is recommended,or the inspector may recognize your proxy
 # --ignore-error 				prevent it from stoping when error occurs
 ```
 
 
 ## server
 
-```
+```shell
 dangocoServer [options]
 
 #see --help for options
