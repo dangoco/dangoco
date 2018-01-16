@@ -16,10 +16,12 @@ commander
 	//user options
 	.option('-u, --user [value]', 'username')
 	.option('-p, --pass [value]', 'password')
+	.option('--keyLength', 'set the byteLength of ramdon key,max is 128. default: 33')
 	//connections options
 	.option('-a, --algo [value]', 'encryption algorithm,defaults to undefined. This should only be set in the insecurity connection')
 	.option('--algolist', 'list all available algorithms')
 	.option('-I, --idle <n>', 'idleTimeout,the connection will be automatically close after this idle time')
+	.option('--udpInTunnel', 'deliver udp packet in tunnel')
 	.option('--ignore-error', 'keep running when having uncaught exception')
 	.option('--disable-deflate', 'disable websocket deflate')
 	.option('--keepBrokenTunnel', 'not close the tunnel when connection lost.(for bad network conditions)')
@@ -39,8 +41,7 @@ if(commander.algolist){//list all available algorithms
 }
 //-v
 if(commander.V){//display the version
-	let v=require('./package.json').version;
-	console.log(`dangoco version: ${v}`);
+	console.log(`dangoco version: ${require('./package.json').version}`);
 	return;
 }
 
@@ -52,7 +53,6 @@ if(commander.ignoreError){
 
 //create a dangoco server
 const {dangocoClient}=require('./lib/client.js'),
-	socks5Server=require('socks5server'),
 	net=require('net');
 
 //options check
@@ -61,12 +61,15 @@ if(commander.idle && !(commander.idle>=0))
 if(typeof commander.user !== 'string' || commander.user.length===0)
 	throw(new Error('Wrong username'));
 
+
 const dangocoConfig={
 	server:commander.server,
 	user:commander.user,
 	pass:commander.pass,
 	algo:commander.algo,
 	idle:commander.idle,
+	keyLength:commander.keyLength||33,
+	udpInTunnel:commander.udpInTunnel||false,
 },
 proxyConfig={
 	connectionPerRequest:commander.connectionPerRequest||false,
@@ -116,9 +119,11 @@ class dangocoProxyClient{
 				},
 				idleTimeout:this.dangocoConfig.idle||5*60000,//defaults to 5 minutes
 			},{
+				udpInTunnel:this.dangocoConfig.udpInTunnel,
 				user:this.dangocoConfig.user,
 				pass:this.dangocoConfig.pass,
 				algo:this.dangocoConfig.algo,
+				keyLength:this.dangocoConfig.keyLength,
 			});
 			client.clientName=clientName;
 			client.once('close',()=>{
@@ -127,7 +132,7 @@ class dangocoProxyClient{
 			}).on('error',e=>{
 				console.error('[tunnel error]',e)
 			}).on('proxy_open',info=>{
-				console.log('[proxy]',`(${info.type})`,`${info.addr}:${info.port}`);
+				console.log('[proxy]',`(${info.type})`,info.type!=='udp'?`${info.addr}:${info.port}`:'');
 			}).on('proxy_close',info=>{
 				if(tunnelMode!=='subStream'){
 					client.close();
@@ -146,12 +151,12 @@ class dangocoProxyClient{
 		}
 		if(!client.tunnelCreated){
 			client.once('tunnel_open',()=>{
-				callback();
-				client.proxy(protocol,addr,port,stream);
+				callback(client.proxy(protocol,addr,port,stream));
+				return;
 			});
 		}else{
-			callback();
-			client.proxy(protocol,addr,port,stream);
+			callback(client.proxy(protocol,addr,port,stream));
+			return;
 		}
 	}
 	_randomName(){//generate a random name value
@@ -189,9 +194,24 @@ if(typeof commander.socks==='string'){
 	let ap=commander.socks.split(/\:/g);
 	if(ap.length!==2)
 		throw(new Error(`Invalid socks server address: ${commander.socks}`));
+	var socks5Server=require('socks5server'),
+		dangocoUDPTools=require('./lib/udp.js');
 	initSocksServer(ap[0],ap[1]);
 }
 
+function relayUDP(socket, port, address, CMD_REPLY){
+	proxyClient.proxy('udp',address,port,socket,udpDeliver=>{
+		let relay=new socks5Server.UDPRelay(socket, port, address, CMD_REPLY);
+		relay.on('clientMessage',frame=>{//msg from client
+			dangocoUDPTools.dangocoUDP.socks5ToDangoco(frame);
+			udpDeliver.emit('clientMsg',frame);
+		});
+		udpDeliver.on('remoteMsg',frame=>{
+			frame[0]=frame[1]=frame[2]=0x00;
+			relay.replyMsg(frame);
+		});
+	})
+}
 function initSocksServer(addr,port){
 	var s5server=socks5Server.createServer();
 
@@ -199,7 +219,8 @@ function initSocksServer(addr,port){
 		proxyClient.proxy('tcp',address,port,socket,()=>{
 			CMD_REPLY();
 		});
-	}).on('error', function (e) {
+	}).on('udp',relayUDP)
+	.on('error', function (e) {
 		console.error('SERVER ERROR: %j', e);
 		if(e.code == 'EADDRINUSE') {
 			console.log('Address in use, retrying in 10 seconds...');

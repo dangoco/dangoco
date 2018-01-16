@@ -21,7 +21,7 @@ dangocoClient -s ws://example.com/xxx -u dango -p test -S 0.0.0.0:1080  -a aes-2
 # -s ws://example.com/xxx 		and use ws://example.com/xxx as the proxy server
 # -u dango -p test 				the username is dango and the password is test
 # -a aes-256-cfb 				using an encryption algorithm aes-256-cfb cause it is an insecure connection
-# 								wss(websocket with https) is recommended,or the inspector may recognize your proxy
+# 								wss(websocket over https) is recommended,or the inspector may recognize your proxy(including url and websocket tunnel control frames)
 # --ignore-error 				prevent it from stoping when error occurs
 ```
 

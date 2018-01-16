@@ -15,6 +15,7 @@ commander
 	.option('-C, --control [value]', 'controller access code. this option wil enable the control api')
 	.option('-L', 'display connection logs')
 	.option('-u, --user [value]', 'user json. [["user","pass"],...]')
+	.option('-u, --user [value]', 'user json. [["user","pass"],...]')
 	.option('-v', 'display the version')
 	.option('--user-file [value]', 'load a user json file.same format as ↑')
 	.option('--algolist', 'list all available algorithms')
@@ -29,8 +30,7 @@ if(commander.algolist){//list all available algorithms
 }
 //-v
 if(commander.V){//display the version
-	let v=require('./package.json').version;
-	console.log(`dangoco version: ${v}`);
+	console.log(`dangoco version: ${require('./package.json').version}`);
 	return;
 }
 
@@ -50,7 +50,7 @@ const server=new dangocoServer(serverOptions,(...args)=>{
 
 server.on('proxy_open',proxy=>{
 	let set=server.userProxy.get(proxy.user);
-	Log&&console.log(`[${proxy.head.type}]`,`[${proxy.user}](🔗 ${set?set.size:0})`,`${proxy.head.addr}:${proxy.head.port}`);
+	Log&&console.log(`[${proxy.head.type}]`,`[${proxy.user}](🔗 ${set?set.size:0})`,proxy.head.type!=='udp'?`${proxy.head.addr}:${proxy.head.port}`:'');
 }).on('proxy_close',proxy=>{
 	let set=server.userProxy.get(proxy.user);
 	let inSize=byteSize(proxy.agent.in),
