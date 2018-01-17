@@ -27,6 +27,7 @@
   "dependencies": {
     "byte-size": "^4.0.2",
     "commander": "^2.11.0",
+    "ip": "^1.1.5",
     "socks5server": "^4.0.4",
     "ws": "^4.0.0",
     "ws-stream-tunnel": "^0.4.4"

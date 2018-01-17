@@ -82,8 +82,14 @@ if(commander.ignoreError)
 		userList=userList.concat(users);
 	}
 	//-u
-	if(commander.user)
-		userList=userList.concat(JSON.parse(commander.user));
+	if(commander.user){
+		try{
+			let userJson=JSON.parse(commander.user);
+		}catch(e){
+			console.error('user parsing error:',e);
+		}
+		userList=userList.concat(userJson);
+	}
 	//load
 	for(let u of userList){
 		if(typeof u[1]==='number')u[1]=String(u[1]);
