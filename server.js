@@ -84,7 +84,7 @@ if(commander.ignoreError)
 	//-u
 	if(commander.user){
 		try{
-			let userJson=JSON.parse(commander.user);
+			var userJson=JSON.parse(commander.user);
 		}catch(e){
 			console.error('user parsing error:',e);
 		}
