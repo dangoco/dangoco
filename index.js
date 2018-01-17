@@ -13,11 +13,11 @@ commander
 
 switch(commander.mode){
 	case 'server':{
-		require('./lib/server.js');
+		require('./server.js');
 		break;
 	}
 	case 'client':case undefined:{
-		require('./lib/client.js');
+		require('./client.js');
 		break;
 	}
 	default:

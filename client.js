@@ -132,15 +132,15 @@ class dangocoProxyClient{
 			}).on('error',e=>{
 				console.error('[tunnel error]',e)
 			}).on('proxy_open',info=>{
-				console.log('[proxy]',`(${info.type})`,info.type!=='udp'?`${info.addr}:${info.port}`:'');
+				console.log('[proxy]',`(${info.type})`,_targetString(info.addr,info.port));
 			}).on('proxy_close',info=>{
 				if(tunnelMode!=='subStream'){
 					client.close();
 					this.clients.delete(clientName);
 				}
-				console.log('[proxy close]',`(${info.type})`,`${info.addr}:${info.port}`);
+				console.log('[proxy close]',`(${info.type})`,`${_targetString(info.addr,info.port)}`);
 			}).on('proxy_error',(info,e)=>{
-				console.error('[proxy error]',`(${info.type})`,`${info.addr}:${info.port}`,(e instanceof Error)?e.message:e)
+				console.error('[proxy error]',`(${info.type})`,`${_targetString(info.addr,info.port)}`,(e instanceof Error)?e.message:e)
 			});
 
 			client.connectionMng.on('_wserror',(ws,err)=>{
@@ -231,12 +231,21 @@ function initSocksServer(addr,port){
 			}, 10000);
 		}
 	}).on('client_error',(socket,e)=>{
-		console.error('  [client error]',`${net.isIP(socket.targetAddress)?'':'('+socket.targetAddress+')'} ${socket.remoteAddress}:${socket.targetPort}`,e.message);
+		console.error('  [client error]',`${_domainName(socket.targetAddress)} ${_targetString(socket.remoteAddress,socket.targetPort)}`,e.message);
 	}).on('socks_error',(socket,e)=>{
-		console.error('  [socks error]',`${net.isIP(socket.targetAddress)?'':'('+socket.targetAddress+')'} ${socket.remoteAddress}:${socket.targetPort}`,e.message);
+		console.error('  [socks error]',`${_domainName(socket.targetAddress)} ${_targetString(socket.remoteAddress,socket.targetPort)}`,e.message);
 	}).on('proxy_error',(proxy,e)=>{
-		console.error('  [proxy error]',`${proxy.targetAddress}:${proxy.targetPort}`,e.message);
+		console.error('  [proxy error]',`${targetAddress(proxy.targetAddress,proxy.targetPort)}`,e.message);
 	}).listen(port, addr,()=>{
 		console.log('socks server stared');
 	});
+}
+
+function _domainName(addr){
+	return net.isIP(addr)?'':'('+addr+')';
+}
+
+function _targetString(addr,port){
+	if(addr)return `${addr}:${port}`;
+	return 'no target';
 }

@@ -50,17 +50,22 @@ const server=new dangocoServer(serverOptions,(...args)=>{
 
 server.on('proxy_open',proxy=>{
 	let set=server.userProxy.get(proxy.user);
-	Log&&console.log(`[${proxy.head.type}]`,`[${proxy.user}](🔗 ${set?set.size:0})`,proxy.head.type!=='udp'?`${proxy.head.addr}:${proxy.head.port}`:'');
+	Log&&console.log(`[${proxy.head.type}]`,`[${proxy.user}](🔗 ${set?set.size:0})`,_targetString(proxy.head));
 }).on('proxy_close',proxy=>{
 	let set=server.userProxy.get(proxy.user);
 	let inSize=byteSize(proxy.agent.in),
 		outSize=byteSize(proxy.agent.out);
-	Log&&console.log(`[${proxy.head.type}]`,`[${proxy.user}](🔗 ${set?set.size:0})`,`[↑${inSize.value}${inSize.unit},↓${outSize.value}${outSize.unit}]`,`${proxy.head.addr}:${proxy.head.port}`,'closed');
+	Log&&console.log(`[${proxy.head.type}]`,`[${proxy.user}](🔗 ${set?set.size:0})`,`[↑${inSize.value}${inSize.unit},↓${outSize.value}${outSize.unit}]`,_targetString(proxy.head),'closed');
 }).on('proxy_error',(proxy,e)=>{
-	Log&&console.error(`[${proxy.head.type}]`,`[${proxy.user}]`,`${proxy.head.addr}:${proxy.head.port}`,(e instanceof Error)?e.message:e);
+	Log&&console.error(`[${proxy.head.type}]`,`[${proxy.user}]`,_targetString(proxy.head),(e instanceof Error)?e.message:e);
 }).on('verify_failed',info=>{
 	Log&&console.log('[verify failed]',`(${info.user})`,info.msg);
 });
+
+function _targetString(head){
+	if(head.addr)return `${head.addr}:${head.port}`;
+	return 'no target';
+}
 
 if(commander.ignoreError)
 	process.on('uncaughtException',function(e){//prevent server from stoping when uncaughtException
