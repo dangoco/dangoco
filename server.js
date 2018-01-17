@@ -15,7 +15,6 @@ commander
 	.option('-C, --control [value]', 'controller access code. this option wil enable the control api')
 	.option('-L', 'display connection logs')
 	.option('-u, --user [value]', 'user json. [["user","pass"],...]')
-	.option('-u, --user [value]', 'user json. [["user","pass"],...]')
 	.option('-v', 'display the version')
 	.option('--user-file [value]', 'load a user json file.same format as ↑')
 	.option('--algolist', 'list all available algorithms')
