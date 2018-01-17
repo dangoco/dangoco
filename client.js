@@ -201,14 +201,16 @@ if(typeof commander.socks==='string'){
 
 function relayUDP(socket, port, address, CMD_REPLY){
 	proxyClient.proxy('udp',address,port,socket,udpDeliver=>{
-		let relay=new socks5Server.UDPRelay(socket, port, address, CMD_REPLY);
-		relay.on('clientMessage',frame=>{//msg from client
-			dangocoUDPTools.dangocoUDP.socks5ToDangoco(frame);
-			udpDeliver.emit('clientMsg',frame);
-		});
-		udpDeliver.on('remoteMsg',frame=>{
-			frame[0]=frame[1]=frame[2]=0x00;
-			relay.replyMsg(frame);
+		udpDeliver.once('ready',()=>{
+			let relay=new socks5Server.UDPRelay(socket, port, address, CMD_REPLY);
+			relay.on('clientMessage',frame=>{//msg from client
+				dangocoUDPTools.dangocoUDP.socks5ToDangoco(frame);
+				udpDeliver.emit('clientMsg',frame);
+			});
+			udpDeliver.on('remoteMsg',frame=>{
+				frame[0]=frame[1]=frame[2]=0x00;
+				relay.replyMsg(frame);
+			});
 		});
 	})
 }
