@@ -21,7 +21,7 @@ commander
 	.option('-a, --algo [value]', 'encryption algorithm,defaults to undefined. This should only be set in the insecurity connection')
 	.option('--algolist', 'list all available algorithms')
 	.option('-I, --idle <n>', 'idleTimeout,the connection will be automatically close after this idle time')
-	.option('--udpInTunnel', 'deliver udp packet in tunnel')
+	///.option('--udpInTunnel', 'deliver udp packet in tunnel')
 	.option('--ignore-error', 'keep running when having uncaught exception')
 	.option('--disable-deflate', 'disable websocket deflate')
 	.option('--keepBrokenTunnel', 'not close the tunnel when connection lost.(for bad network conditions)')
@@ -69,7 +69,7 @@ const dangocoConfig={
 	algo:commander.algo,
 	idle:commander.idle,
 	keyLength:commander.keyLength||33,
-	udpInTunnel:commander.udpInTunnel||false,
+	udpInTunnel:/*commander.udpInTunnel||false*/true,
 },
 proxyConfig={
 	connectionPerRequest:commander.connectionPerRequest||false,
