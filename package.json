@@ -1,7 +1,7 @@
 {
   "name": "dangoco",
   "version": "0.1.8",
-  "description": "A proxy uses websocket",
+  "description": "A proxy over websocket",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
