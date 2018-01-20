@@ -2,13 +2,13 @@
 (団子子)
 A proxy over websocket
 
-## using
+## Using
 
 ```shell
-npm i dangoco -g
+npm i -g dangoco
 ```
 
-## client
+## Client
 
 ```shell
 dangocoClient [options]
@@ -27,7 +27,7 @@ dangocoClient -s ws://example.com/xxx -u dango -p test --socksHost 0.0.0.0 --soc
 ```
 
 
-## server
+## Server
 
 ```shell
 dangocoServer [options]
@@ -42,7 +42,7 @@ dangocoServer --ignore-error -u '[["dango","test"]]' -L
 
 ```
 
-## support protocol
+## Supported protocol
 
 * TCP
 * UDP
