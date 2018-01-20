@@ -16,8 +16,9 @@ dangocoClient [options]
 #see --help for options
 
 #example
-dangocoClient -s ws://example.com/xxx -u dango -p test -S 0.0.0.0:1080  -a aes-256-cfb --ignore-error
-# -S 0.0.0.0:1080				start a client listening on 0.0.0.0:1080 for socks5 connections 
+dangocoClient -s ws://example.com/xxx -u dango -p test --socksHost 0.0.0.0 --socksPort 1080  -a aes-256-cfb --ignore-error
+# --socksHost 0.0.0.0			start a client listening on 0.0.0.0:1080 for socks connections 
+# --socksPort 1080
 # -s ws://example.com/xxx 		and use ws://example.com/xxx as the proxy server
 # -u dango -p test 				the username is dango and the password is test
 # -a aes-256-cfb 				using an encryption algorithm aes-256-cfb cause it is an insecure connection
@@ -41,4 +42,7 @@ dangocoServer --ignore-error -u '[["dango","test"]]' -L
 
 ```
 
-# UDP not works for now
+## support protocol
+
+* TCP
+* UDP

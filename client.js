@@ -12,16 +12,17 @@ commander
 	.usage('[options]')
 	//server options
 	.option('-s, --server [value]', 'server address. example: ws://127.0.0.1:80')
-	.option('-S, --socks [value]', 'listen on the address for socks proxy. example: 127.0.0.1:1080')
-	//user options
 	.option('-u, --user [value]', 'username')
 	.option('-p, --pass [value]', 'password')
 	.option('--keyLength', 'set the byteLength of ramdon key,max is 128. default: 33')
+	//socks options
+	.option('--socksHost [value]', 'listen on the host for socks proxy. example: 127.0.0.1')
+	.option('--socksPort <n>', 'listen on the port for socks proxy. example: 1080')
 	//connections options
 	.option('-a, --algo [value]', 'encryption algorithm,defaults to undefined. This should only be set in the insecurity connection')
 	.option('--algolist', 'list all available algorithms')
 	.option('-I, --idle <n>', 'idleTimeout,the connection will be automatically close after this idle time')
-	///.option('--udpInTunnel', 'deliver udp packet in tunnel')
+	////.option('--udpInTunnel', 'deliver udp packet in tunnel')
 	.option('--ignore-error', 'keep running when having uncaught exception')
 	.option('--disable-deflate', 'disable websocket deflate')
 	.option('--keepBrokenTunnel', 'not close the tunnel when connection lost.(for bad network conditions)')
@@ -46,12 +47,12 @@ if(commander.V){//display the version
 }
 
 if(commander.ignoreError){
-	process.on('uncaughtException',function(e){//prevent server from stoping when uncaughtException
+	process.on('uncaughtException',function(e){//prevent server from stoping when uncaughtException occurs
 	    console.error(e);
 	});
 }
 
-//create a dangoco server
+//create a dangoco client
 const {dangocoClient}=require('./lib/client.js'),
 	net=require('net');
 
@@ -104,6 +105,8 @@ class dangocoProxyClient{
 		this.dangocoConfig=Object.assign({},dangocoConfig);
 		this.proxyConfig=Object.assign({},proxyConfig);
 		this.clients=new Map();
+		//prevent node from exiting
+		this._refTimer=setInterval(()=>{},0xFFFFFFF);
 	}
 	proxy(protocol,addr,port,stream,callback){
 		let [clientName,tunnelMode]=this._getClientInfo(protocol,addr,port),
@@ -188,15 +191,12 @@ const proxyClient=new dangocoProxyClient(dangocoConfig,proxyConfig);
 
 
 
-
-//the socks サーバ
-if(typeof commander.socks==='string'){
-	let ap=commander.socks.split(/\:/g);
-	if(ap.length!==2)
-		throw(new Error(`Invalid socks server address: ${commander.socks}`));
-	var socks5Server=require('socks5server'),
-		dangocoUDPTools=require('./lib/udp.js');
-	initSocksServer(ap[0],ap[1]);
+/*-------socks server--------*/
+let socks5Server,dangocoUDPTools;
+if(commander.socksHost || commander.socksPort){
+	let host=commander.socksHost||'127.0.0.1',
+		port=commander.socksPort||1080;
+	initSocksServer(host,port);
 }
 
 function relayUDP(socket, port, address, CMD_REPLY){
@@ -214,8 +214,10 @@ function relayUDP(socket, port, address, CMD_REPLY){
 		});
 	})
 }
-function initSocksServer(addr,port){
-	var s5server=socks5Server.createServer();
+function initSocksServer(host,port){
+	if(!socks5Server)socks5Server=require('socks5server');
+	if(!dangocoUDPTools)dangocoUDPTools=require('./lib/udp.js');
+	var s5server=global.s5server=socks5Server.createServer();
 
 	s5server.on('tcp',(socket, port, address, CMD_REPLY)=>{
 		proxyClient.proxy('tcp',address,port,socket,()=>{
@@ -227,9 +229,9 @@ function initSocksServer(addr,port){
 		if(e.code == 'EADDRINUSE') {
 			console.log('Address in use, retrying in 10 seconds...');
 			setTimeout(function () {
-				console.log('Reconnecting to %s:%s', HOST, PORT);
+				console.log('Reconnecting to %s:%s', host, port);
 				s5server.close();
-				s5server.listen(PORT, HOST);
+				s5server.listen(port, host);
 			}, 10000);
 		}
 	}).on('client_error',(socket,e)=>{
@@ -238,7 +240,9 @@ function initSocksServer(addr,port){
 		console.error('  [socks error]',`${_domainName(socket.targetAddress)} ${_targetString(socket.remoteAddress,socket.targetPort)}`,e.message);
 	}).on('proxy_error',(proxy,e)=>{
 		console.error('  [proxy error]',`${targetAddress(proxy.targetAddress,proxy.targetPort)}`,e.message);
-	}).listen(port, addr,()=>{
+	}).once('close',()=>{
+		global.s5server=null;
+	}).listen(port, host,()=>{
 		console.log('socks server stared');
 	});
 }
@@ -250,4 +254,44 @@ function _domainName(addr){
 function _targetString(addr,port){
 	if(addr)return `${addr}:${port}`;
 	return 'no target';
+}
+
+
+
+
+/*-------IPC control--------*/
+
+if(require('cluster').isWorker){
+	var IPCControl=requrie('./lib/IPCControl');
+	enableIPCControl();
+}
+function enableIPCControl(){
+	let ctrl=new IPCControl(process);
+	ctrl.action('closeSocks',(msg,callback)=>{
+		if(global.s5server && !global.s5server.closing){
+			global.s5server.closing=true;
+			global.s5server.close(()=>{
+				callback();
+			});
+			return;
+		}
+		callback('socks server is not running');
+	}).action('startSocks',msg=>{
+		if(global.s5server){
+			callback('socks server is running');
+			return;
+		}
+		let host=msg.host||commander.socksHost,
+			port=msg.port||commander.socksPort;
+		if(host){
+			callback('host not defined');
+			return;
+		}
+		if(host){
+			callback('port not defined');
+			return;
+		}
+		initSocksServer(host,port);
+		callback();
+	});
 }
