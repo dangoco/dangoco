@@ -21,7 +21,7 @@ commander
 	//connections options
 	.option('-a, --algo [value]', 'encryption algorithm,defaults to undefined. This should only be set in the insecurity connection')
 	.option('--algolist', 'list all available algorithms')
-	.option('-I, --idle <n>', 'idleTimeout,the connection will be automatically close after this idle time')
+	.option('-I, --idle <n>', 'idleTimeout,the connection will be automatically close after this idle seconds. Defaults to 15.')
 	////.option('--udpInTunnel', 'deliver udp packet in tunnel')
 	.option('--ignore-error', 'keep running when having uncaught exception')
 	.option('--disable-deflate', 'disable websocket deflate')
@@ -68,8 +68,9 @@ const dangocoConfig={
 	user:commander.user,
 	pass:commander.pass,
 	algo:commander.algo,
-	idle:commander.idle,
+	idle:commander.idle>=0?commander.idle:15,//defaults to 15s
 	keyLength:commander.keyLength||33,
+	keepBrokenTunnel:commander.keepBrokenTunnel,
 	udpInTunnel:/*commander.udpInTunnel||false*/true,
 },
 proxyConfig={
@@ -79,8 +80,6 @@ proxyConfig={
 	connectionPerUDP:commander.connectionPerUDP||false,
 	connectionForUDP:commander.connectionForUDP||false,
 };
-
-
 
 /*
 options:
@@ -120,7 +119,8 @@ class dangocoProxyClient{
 				ws:{
 					perMessageDeflate:!commander.disableDeflate,
 				},
-				idleTimeout:this.dangocoConfig.idle||5*60000,//defaults to 5 minutes
+				keepBrokenTunnel:this.dangocoConfig.keepBrokenTunnel,
+				idleTimeout:this.dangocoConfig.idle*1000,//to milliseconds
 			},{
 				udpInTunnel:this.dangocoConfig.udpInTunnel,
 				user:this.dangocoConfig.user,
