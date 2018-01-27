@@ -56,6 +56,8 @@ if(commander.ignoreError){
 const {dangocoClient}=require('./lib/client.js'),
 	net=require('net');
 
+let proxyClient,s5server;
+
 //options check
 if(commander.idle && !(commander.idle>=0))
 	throw(new Error('Invalid idleTimeout'));
@@ -101,6 +103,7 @@ client names
 
 class dangocoProxyClient{
 	constructor(dangocoConfig,proxyConfig){
+		console.log('init proxy client');
 		this.dangocoConfig=Object.assign({},dangocoConfig);
 		this.proxyConfig=Object.assign({},proxyConfig);
 		this.clients=new Map();
@@ -186,8 +189,10 @@ class dangocoProxyClient{
 		return [name,multiConnection?'subStream':'stream'];//use stream mode for private tunnel,subStream mode for mixed tunnel
 	}
 }
+if(commander.server){
+	proxyClient=new dangocoProxyClient(dangocoConfig,proxyConfig);
+}
 
-const proxyClient=new dangocoProxyClient(dangocoConfig,proxyConfig);
 
 
 
@@ -200,6 +205,10 @@ if(commander.socksHost || commander.socksPort){
 }
 
 function relayUDP(socket, port, address, CMD_REPLY){
+	if(!proxyClient){
+		CMD_REPLY(0x01);//reject
+		return;
+	}
 	proxyClient.proxy('udp',address,port,socket,udpDeliver=>{
 		udpDeliver.once('ready',()=>{
 			let relay=new socks5Server.UDPRelay(socket, port, address, CMD_REPLY);
@@ -217,9 +226,13 @@ function relayUDP(socket, port, address, CMD_REPLY){
 function initSocksServer(host,port){
 	if(!socks5Server)socks5Server=require('socks5server');
 	if(!dangocoUDPTools)dangocoUDPTools=require('./lib/udp.js');
-	var s5server=global.s5server=socks5Server.createServer();
+	var s5server=socks5Server.createServer();
 
 	s5server.on('tcp',(socket, port, address, CMD_REPLY)=>{
+		if(!proxyClient){
+			CMD_REPLY(0x01);//reject
+			return;
+		}
 		proxyClient.proxy('tcp',address,port,socket,()=>{
 			CMD_REPLY();
 		});
