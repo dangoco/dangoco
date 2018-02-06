@@ -48,12 +48,12 @@ const server=new dangocoServer(serverOptions,(...args)=>{
 	console.log('server started at',server.tunnelServer._server.address());
 	if(commander.disableBlock){//disable block rules
 		if(typeof commander.disableBlock === 'string')commander.disableBlock=[commander.disableBlock];
-		for(let [r,func] of server.blockRules){
+		for(let [r,func] of server.accessRuleSet.rules){
 			let name=String(r),match;
 			if(commander.disableBlock.indexOf(name)>=0 
 				|| ((match=name.match(/^Symbol\((.+)\)$/))&&commander.disableBlock.indexOf(match[1])>=0)){
 				console.log('disable block rule :',name);
-				server.blockRules.delete(r);
+				server.accessRuleSet.rules.delete(r);
 			}
 		}
 	}
