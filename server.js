@@ -10,15 +10,15 @@ Copyright 2017 dangoco
 const commander = require('commander');
 commander
 	.usage('[options]')
+	.version(`dangoco version: ${require('./package.json').version}`)
 	.option('-h, --host [value]', 'listen on the host for in coming proxy request. for example: 127.0.0.1')
-	.option('-p, --port <n>', 'listen on the port for in coming proxy request. for example: 80')
+	.option('-p, --port <n>', 'listen on the port for in coming proxy request. for example: 80',Number)
 	.option('-C, --control [value]', 'controller access code. this option wil enable the control api')
 	.option('-L', 'display connection logs')
-	.option('-u, --user [value]', 'user json. [["user","pass"],...]')
-	.option('-v', 'display the version')
-	.option('--user-file [value]', 'load a user json file.same format as ↑')
+	.option('-u, --user [value]', 'user json. [["user","pass"],...]',v=>{try{return JSON.parse(v);}catch(e){throw('user parsing error:',e);}})
+	.option('--user-file [value]', 'load a user json file. Same format as ↑')
 	.option('--algolist', 'list all available algorithms')
-	.option('--ignore-error', 'keep running when having uncaught exception')
+	.option('--disable-block <items>', 'disable specific block rules',v=>v.split(','))
 	.parse(process.argv);
 
 
@@ -27,13 +27,14 @@ if(commander.algolist){//list all available algorithms
 	console.log(require('crypto').getCiphers().join('\n'));
 	return;
 }
-//-v
-if(commander.V){//display the version
-	console.log(`dangoco version: ${require('./package.json').version}`);
-	return;
-}
 
+/*-------------start of the server---------------*/
 const Log=commander.L;
+
+
+process.on('uncaughtException',function(e){//prevent server from stoping when uncaughtException
+	console.error('uncaughtException',e);
+});
 
 const {dangocoServer} = require('./lib/server.js'),
 	byteSize = require('byte-size');
@@ -44,7 +45,21 @@ const serverOptions={
 };
 
 const server=new dangocoServer(serverOptions,(...args)=>{
-	console.log('server started at',server._tunnelServer._server.address());
+	console.log('server started at',server.tunnelServer._server.address());
+	if(commander.disableBlock){//disable block rules
+		if(typeof commander.disableBlock === 'string')commander.disableBlock=[commander.disableBlock];
+		for(let [r,func] of server.blockRules){
+			let name=String(r),match;
+			if(commander.disableBlock.indexOf(name)>=0 
+				|| ((match=name.match(/^Symbol\((.+)\)$/))&&commander.disableBlock.indexOf(match[1])>=0)){
+				console.log('disable block rule :',name);
+				server.blockRules.delete(r);
+			}
+		}
+	}
+	
+	
+
 });
 
 server.on('proxy_open',proxy=>{
@@ -56,20 +71,16 @@ server.on('proxy_open',proxy=>{
 		outSize=byteSize(proxy.agent.out);
 	Log&&console.log(`[${proxy.head.type}]`,`[${proxy.user}](🔗 ${set?set.size:0})`,`[↑${inSize.value}${inSize.unit},↓${outSize.value}${outSize.unit}]`,_targetString(proxy.head),'closed');
 }).on('proxy_error',(proxy,e)=>{
-	Log&&console.error(`[${proxy.head.type}]`,`[${proxy.user}]`,_targetString(proxy.head),(e instanceof Error)?e.message:e);
+	Log&&console.error(`[${proxy.head.type}]`,`[${proxy.user}]`,'error',_targetString(proxy.head),(e instanceof Error)?e.message:e);
 }).on('verify_failed',info=>{
 	Log&&console.log('[verify failed]',`(${info.user})`,info.msg);
 });
 
 function _targetString(head){
 	if(head.addr)return `${head.addr}:${head.port}`;
-	return 'no target';
+	return 'unknown target';
 }
 
-if(commander.ignoreError)
-	process.on('uncaughtException',function(e){//prevent server from stoping when uncaughtException
-	    console.error(e);
-	});
 
 /*user*/
 {
@@ -82,14 +93,8 @@ if(commander.ignoreError)
 		userList=userList.concat(users);
 	}
 	//-u
-	if(commander.user){
-		try{
-			var userJson=JSON.parse(commander.user);
-		}catch(e){
-			console.error('user parsing error:',e);
-		}
-		userList=userList.concat(userJson);
-	}
+	if(commander.user)
+		userList=userList.concat(commander.user);
 	//load
 	for(let u of userList){
 		if(typeof u[1]==='number')u[1]=String(u[1]);

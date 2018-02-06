@@ -10,6 +10,7 @@ const commander = require('commander');
 	
 commander
 	.usage('[options]')
+	.version(`dangoco version: ${require('./package.json').version}`)
 	//server options
 	.option('-s, --server [value]', 'server address. example: ws://127.0.0.1:80')
 	.option('-u, --user [value]', 'username')
@@ -23,7 +24,6 @@ commander
 	.option('--algolist', 'list all available algorithms')
 	.option('-I, --idle <n>', 'idleTimeout,the connection will be automatically close after this idle seconds. Defaults to 15.')
 	////.option('--udpInTunnel', 'deliver udp packet in tunnel')
-	.option('--ignore-error', 'keep running when having uncaught exception')
 	.option('--disable-deflate', 'disable websocket deflate')
 	.option('--keepBrokenTunnel', 'not close the tunnel when connection lost.(for bad network conditions)')
 	.option('--connectionPerRequest', 'create a connection for every request')
@@ -33,6 +33,7 @@ commander
 	.option('--connectionForUDP', 'create a connection for all udp request')
 	//other
 	.option('-v', 'display the version')
+	.option('-L', 'display connection logs')
 	.parse(process.argv);
 
 //--algolist
@@ -40,29 +41,56 @@ if(commander.algolist){//list all available algorithms
 	console.log(require('crypto').getCiphers().join('\n'));
 	return;
 }
-//-v
-if(commander.V){//display the version
-	console.log(`dangoco version: ${require('./package.json').version}`);
-	return;
-}
 
-if(commander.ignoreError){
-	process.on('uncaughtException',function(e){//prevent server from stoping when uncaughtException occurs
-	    console.error(e);
-	});
-}
+/*ーーーーーstart of the clientーーーーー*/
+const Log=commander.L;//log switch
 
-//create a dangoco client
-const {dangocoClient}=require('./lib/client.js'),
-	net=require('net');
 
-let proxyClient,s5server;
+
+process.on('uncaughtException',function(e){//prevent client from stoping when uncaughtException occurs
+	console.error(e);
+});
+
+
+/*-------------dangoco client proxy--------------*/
+const net = require('net'),
+	byteSize = require('byte-size'),
+	{dangocoClient}=require('./lib/client.js');
 
 //options check
-if(commander.idle && !(commander.idle>=0))
-	throw(new Error('Invalid idleTimeout'));
-if(typeof commander.user !== 'string' || commander.user.length===0)
-	throw(new Error('Wrong username'));
+/*if(commander.idle && !(commander.idle>=0))
+	throw(new Error('Invalid idleTimeout'));*/
+/*if(typeof commander.user !== 'string' || commander.user.length===0)
+	throw(new Error('Wrong username'));*/
+
+
+class ProxyList{
+	constructor(){
+		this.map=new Map();
+		this.list=[];
+	}
+	set(key,value){
+		this.map.set(key,value);
+		this.list=[...this.map.values()];
+	}
+	delete(key){
+		this.map.delete(key);
+		this.list=[...this.map.values()];
+	}
+	clear(){
+		this.map.clear();
+		this.list.length=0;
+	}
+	first(){
+		return this.list[0]||false;
+	}
+	random(){
+		return this.list[((this.list.length-1)*Math.random()+.5)|0]||false;
+	}
+}
+
+
+let clientProxyList=new ProxyList(),socksServers=new Map();
 
 
 const dangocoConfig={
@@ -101,7 +129,7 @@ client names
 	UDP 			(for UDP fule)
 */
 
-class dangocoProxyClient{
+class dangocoClientProxy{
 	constructor(dangocoConfig,proxyConfig){
 		console.log('init proxy client');
 		this.dangocoConfig=Object.assign({},dangocoConfig);
@@ -109,13 +137,14 @@ class dangocoProxyClient{
 		this.clients=new Map();
 		//prevent node from exiting
 		this._refTimer=setInterval(()=>{},0xFFFFFFF);
+
 	}
 	proxy(protocol,addr,port,stream,callback){
 		let [clientName,tunnelMode]=this._getClientInfo(protocol,addr,port),
 			client=this.clients.get(clientName);
 
 		if(!client){//create a new client if not exists
-			console.log('[new client]',clientName);
+			Log&&console.log('[new client]',clientName);
 			client=new dangocoClient({
 				mode:tunnelMode,
 				addr:this.dangocoConfig.server,
@@ -134,23 +163,28 @@ class dangocoProxyClient{
 			client.clientName=clientName;
 			client.once('close',()=>{
 				this.clients.delete(client.clientName);//remove from client list
-				console.log('[close client]',clientName);
+				Log&&console.log('[close client]',clientName);
 			}).on('error',e=>{
-				console.error('[tunnel error]',e)
+				Log&&console.error('[tunnel error]',e)
 			}).on('proxy_open',info=>{
-				console.log('[proxy]',`(${info.type})`,_targetString(info.addr,info.port));
+				Log&&console.log('[proxy]',`(🔗 ${calcConnection(this)})`,`(${info.type})`,_targetString(info.addr,info.port));
 			}).on('proxy_close',info=>{
 				if(tunnelMode!=='subStream'){
 					client.close();
 					this.clients.delete(clientName);
 				}
-				console.log('[proxy close]',`(${info.type})`,`${_targetString(info.addr,info.port)}`);
+				if(Log){
+					let io=info.tunnelStream?{in:info.tunnelStream.agent.in,out:info.tunnelStream.agent.out}:{in:0,out:0};
+					let inSize=byteSize(io.in),
+						outSize=byteSize(io.out);
+					Log&&console.log('[proxy close]',`(🔗 ${calcConnection(this)})`,`(${info.type})`,`[↑${outSize.value}${outSize.unit},↓${inSize.value}${inSize.unit}]`,`${_targetString(info.addr,info.port)}`);
+				}
 			}).on('proxy_error',(info,e)=>{
-				console.error('[proxy error]',`(${info.type})`,`${_targetString(info.addr,info.port)}`,(e instanceof Error)?e.message:e)
+				Log&&console.error('[proxy error]',`(${info.type})`,`${_targetString(info.addr,info.port)}`,(e instanceof Error)?e.message:e)
 			});
 
 			client.connectionMng.on('_wserror',(ws,err)=>{
-				console.error('connection error:',err.message)
+				Log&&console.error('connection error:',err.message)
 			});
 
 			this.clients.set(clientName,client);
@@ -190,85 +224,150 @@ class dangocoProxyClient{
 	}
 }
 if(commander.server){
-	proxyClient=new dangocoProxyClient(dangocoConfig,proxyConfig);
+	clientProxyList.set('default',new dangocoClientProxy(dangocoConfig,proxyConfig));
 }
 
-
-
+function calcConnection(clientProxy){
+	let c=0;
+	for(let [n,client] of clientProxy.clients){
+		c+=client.proxyList.size;
+	}
+	return c;
+}
 
 /*-------socks server--------*/
-let socks5Server,dangocoUDPTools;
+let socks5Server,dangocoUDPTools,pump;
+/*
+socks to client map type
+	default : select the first client in the list
+	rule : depend on the rule
+	name : depend on the name
+	random : random
+
+options 
+	map:{
+		type: map type,
+		name: proxy name if type is 'name'
+		rule: proxy name if type is 'rule'
+	}
+
+*/
+
+class socksProxyServer{
+	constructor(host,port,options={}){
+		this.options=Object.assign({},options)
+		this.name=`${host}:${port}`;
+		if(socksServers.has(this.name)){
+			throw(Error('duplicated socks server name: '+this.name));
+		}
+		socksServers.set(this.name,this);
+
+		if(!socks5Server)socks5Server=require('socks5server');
+		if(!dangocoUDPTools)dangocoUDPTools=require('./lib/udp.js');
+		if(!pump)pump=require('pump');
+		const server=this.server=socks5Server.createServer();
+
+		server.on('tcp',(socket, port, address, CMD_REPLY)=>{
+			this.relay('tcp',socket, port, address, CMD_REPLY);
+		}).on('udp',(socket, port, address, CMD_REPLY)=>{
+			this.relay('udp',socket, port, address, CMD_REPLY);
+		})
+		.on('error', function (e) {
+			console.error('SERVER ERROR: %j', e);
+			if(e.code == 'EADDRINUSE') {
+				console.log('Address in use, retrying in 10 seconds...');
+				setTimeout(function () {
+					console.log('Reconnecting to %s:%s', host, port);
+					server.close();
+					server.listen(port, host);
+				}, 10000);
+			}
+		}).on('client_error',(socket,e)=>{
+			Log&&console.error('  [client error]',`[${_domainName(socket.targetAddress)} ${_targetString(socket.targetAddress,socket.targetPort)}]`,e.message);
+		}).on('socks_error',(socket,e)=>{
+			Log&&console.error('  [socks error]',`[${_domainName(socket.targetAddress)} ${_targetString(socket.remoteAddress,socket.targetPort)}]`,e.message);
+		}).on('proxy_error',(proxy,e)=>{
+			Log&&console.error('  [proxy error]',`[${targetAddress(proxy.targetAddress,proxy.targetPort)}]`,e.message);
+		}).once('close',()=>{
+			console.log('socks server stoped',this.name);
+			socksServers.delete(this.name);
+		}).listen(port, host,()=>{
+			console.log('socks server stared',this.name);
+		});
+	}
+	relay(type,socket, port, address, CMD_REPLY){
+		let proxy=this.dangocoProxy;
+		if(proxy===false){
+			CMD_REPLY(0x01);
+			console.error('No available client proxy');
+			return;
+		}
+
+		if(type==='tcp'){
+			proxy.proxy('tcp',address,port,socket,stream=>{
+				/*if(stream instanceof Error){
+					socket.destroy(stream);
+					return;
+				}
+				let err=null;
+				stream.once('data',data=>{
+					stream.unshift(data);
+					pump(socket,stream.agent.outStream);
+					pump(stream.agent.inStream,socket);
+					CMD_REPLY();
+				}).once('error',e=>{
+					CMD_REPLY(0x01);
+
+				});*/
+
+				CMD_REPLY();
+			});
+		}else if(type==='udp'){
+			proxy.proxy('udp',address,port,socket,udpDeliver=>{
+				udpDeliver.once('ready',()=>{
+					let relay=new socks5Server.UDPRelay(socket, port, address, CMD_REPLY);
+					relay.on('clientMessage',frame=>{//msg from client
+						dangocoUDPTools.dangocoUDP.socks5ToDangoco(frame);
+						udpDeliver.emit('clientMsg',frame);
+					});
+					udpDeliver.on('remoteMsg',frame=>{
+						frame[0]=frame[1]=frame[2]=0x00;
+						relay.replyMsg(frame);
+					});
+				});
+			});
+		}
+	}
+
+	get dangocoProxy(){
+		let dP;
+		switch(this.options.map.type){
+			case 'default':{dP=clientProxyList.first();break;}
+			case 'random':{dP=clientProxyList.random();break;}
+			case 'name':{dP=clientProxyList.map.get(this.options.map.name);break;}
+			case 'rule':{
+				//todo
+				break;
+			}
+		}
+		return dP;
+	}
+}
+function _domainName(addr){
+	return (!addr||net.isIP(addr))?'':'('+addr+')';
+}
+function _targetString(addr,port){
+	if(addr)return `${addr}:${port}`;
+	return 'unknown target';
+}
+
 if(commander.socksHost || commander.socksPort){
 	let host=commander.socksHost||'127.0.0.1',
 		port=commander.socksPort||1080;
-	initSocksServer(host,port);
+	new socksProxyServer(host,port,{map:{
+		type:'default',
+	}});
 }
-
-function relayUDP(socket, port, address, CMD_REPLY){
-	if(!proxyClient){
-		CMD_REPLY(0x01);//reject
-		return;
-	}
-	proxyClient.proxy('udp',address,port,socket,udpDeliver=>{
-		udpDeliver.once('ready',()=>{
-			let relay=new socks5Server.UDPRelay(socket, port, address, CMD_REPLY);
-			relay.on('clientMessage',frame=>{//msg from client
-				dangocoUDPTools.dangocoUDP.socks5ToDangoco(frame);
-				udpDeliver.emit('clientMsg',frame);
-			});
-			udpDeliver.on('remoteMsg',frame=>{
-				frame[0]=frame[1]=frame[2]=0x00;
-				relay.replyMsg(frame);
-			});
-		});
-	})
-}
-function initSocksServer(host,port){
-	if(!socks5Server)socks5Server=require('socks5server');
-	if(!dangocoUDPTools)dangocoUDPTools=require('./lib/udp.js');
-	var s5server=socks5Server.createServer();
-
-	s5server.on('tcp',(socket, port, address, CMD_REPLY)=>{
-		if(!proxyClient){
-			CMD_REPLY(0x01);//reject
-			return;
-		}
-		proxyClient.proxy('tcp',address,port,socket,()=>{
-			CMD_REPLY();
-		});
-	}).on('udp',relayUDP)
-	.on('error', function (e) {
-		console.error('SERVER ERROR: %j', e);
-		if(e.code == 'EADDRINUSE') {
-			console.log('Address in use, retrying in 10 seconds...');
-			setTimeout(function () {
-				console.log('Reconnecting to %s:%s', host, port);
-				s5server.close();
-				s5server.listen(port, host);
-			}, 10000);
-		}
-	}).on('client_error',(socket,e)=>{
-		console.error('  [client error]',`${_domainName(socket.targetAddress)} ${_targetString(socket.remoteAddress,socket.targetPort)}`,e.message);
-	}).on('socks_error',(socket,e)=>{
-		console.error('  [socks error]',`${_domainName(socket.targetAddress)} ${_targetString(socket.remoteAddress,socket.targetPort)}`,e.message);
-	}).on('proxy_error',(proxy,e)=>{
-		console.error('  [proxy error]',`${targetAddress(proxy.targetAddress,proxy.targetPort)}`,e.message);
-	}).once('close',()=>{
-		global.s5server=null;
-	}).listen(port, host,()=>{
-		console.log('socks server stared');
-	});
-}
-
-function _domainName(addr){
-	return net.isIP(addr)?'':'('+addr+')';
-}
-
-function _targetString(addr,port){
-	if(addr)return `${addr}:${port}`;
-	return 'no target';
-}
-
 
 
 
