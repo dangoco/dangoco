@@ -15,7 +15,7 @@ commander
 	.option('-p, --port <n>', 'listen on the port for in coming proxy request. for example: 80',Number)
 	.option('-C, --control [value]', 'controller access code. this option wil enable the control api')
 	.option('-L', 'display connection logs')
-	.option('-u, --user [value]', 'user json. [["user","pass"],...]',v=>{try{return JSON.parse(v);}catch(e){throw('user parsing error:',e);}})
+	.option('-u, --user [value]', 'user json. [["user","pass"],...]',v=>{try{return JSON.parse(v);}catch(e){console.log('user json:',v);throw('user parsing error:',e);}})
 	.option('--user-file [value]', 'load a user json file. Same format as ↑')
 	.option('--algolist', 'list all available algorithms')
 	.option('--disable-block <items>', 'disable specific block rules',v=>v.split(','))
