@@ -15,7 +15,7 @@ commander
 	.option('-s, --server [value]', 'server address. example: ws://127.0.0.1:80')
 	.option('-u, --user [value]', 'username')
 	.option('-p, --pass [value]', 'password')
-	.option('--keyLength', 'set the byteLength of ramdon key,max is 128. default: 33')
+	.option('--keyLength', 'set the byteLength of ramdon key(for encryption),max is 128. default: 33')
 	//socks options
 	.option('--socksHost [value]', 'listen on the host for socks proxy. example: 127.0.0.1')
 	.option('--socksPort <n>', 'listen on the port for socks proxy. example: 1080')
@@ -25,7 +25,7 @@ commander
 	.option('-I, --idle <n>', 'idleTimeout,the connection will be automatically close after this idle seconds. Defaults to 15.')
 	////.option('--udpInTunnel', 'deliver udp packet in tunnel')
 	.option('--disable-deflate', 'disable websocket deflate')
-	.option('--keepBrokenTunnel', 'not close the tunnel when connection lost.(for bad network conditions)')
+	.option('--keepBrokenTunnel', 'seconds for not closing the tunnel when connection lost.(for bad network conditions)')
 	.option('--connectionPerRequest', 'create a connection for every request')
 	.option('--connectionPerTarget', 'create a connection for every target')
 	.option('--connectionPerTCP', 'create a connection for every tcp request')
@@ -56,13 +56,6 @@ process.on('uncaughtException',function(e){//prevent client from stoping when un
 const net = require('net'),
 	byteSize = require('byte-size'),
 	{dangocoClient}=require('./lib/client.js');
-
-//options check
-/*if(commander.idle && !(commander.idle>=0))
-	throw(new Error('Invalid idleTimeout'));*/
-/*if(typeof commander.user !== 'string' || commander.user.length===0)
-	throw(new Error('Wrong username'));*/
-
 
 class ProxyList{
 	constructor(){
@@ -151,7 +144,7 @@ class dangocoClientProxy{
 				ws:{
 					perMessageDeflate:!commander.disableDeflate,
 				},
-				keepBrokenTunnel:this.dangocoConfig.keepBrokenTunnel,
+				keepBrokenTunnel:this.dangocoConfig.keepBrokenTunnel*1000,
 				idleTimeout:this.dangocoConfig.idle*1000,//to milliseconds
 			},{
 				udpInTunnel:this.dangocoConfig.udpInTunnel,
@@ -167,7 +160,7 @@ class dangocoClientProxy{
 			}).on('error',e=>{
 				Log&&console.error('[tunnel error]',e)
 			}).on('proxy_open',info=>{
-				Log&&console.log('[proxy]',`(🔗 ${calcConnection(this)})`,`(${info.type})`,_targetString(info.addr,info.port));
+				Log&&console.log('[proxy]',`(<-> ${this.calcConnection()})`,`(${info.type})`,_targetString(info.addr,info.port));
 			}).on('proxy_close',info=>{
 				if(tunnelMode!=='subStream'){
 					client.close();
@@ -177,7 +170,7 @@ class dangocoClientProxy{
 					let io=info.tunnelStream?{in:info.tunnelStream.agent.in,out:info.tunnelStream.agent.out}:{in:0,out:0};
 					let inSize=byteSize(io.in),
 						outSize=byteSize(io.out);
-					Log&&console.log('[proxy close]',`(🔗 ${calcConnection(this)})`,`(${info.type})`,`[↑${outSize.value}${outSize.unit},↓${inSize.value}${inSize.unit}]`,`${_targetString(info.addr,info.port)}`);
+					Log&&console.log('[proxy close]',`(<-> ${this.calcConnection()})`,`(${info.type})`,`[↑${outSize.value}${outSize.unit},↓${inSize.value}${inSize.unit}]`,`${_targetString(info.addr,info.port)}`);
 				}
 			}).on('proxy_error',(info,e)=>{
 				Log&&console.error('[proxy error]',`(${info.type})`,`${_targetString(info.addr,info.port)}`,(e instanceof Error)?e.message:e)
@@ -198,6 +191,13 @@ class dangocoClientProxy{
 			callback(client.proxy(protocol,addr,port,stream));
 			return;
 		}
+	}
+	calcConnection(){
+		let c=0;
+		for(let [n,client] of this.clients){
+			c+=client.proxyList.size;
+		}
+		return c;
 	}
 	_randomName(){//generate a random name value
 		return Math.round(Math.random()*544790277504495).toString(32)+'_'+Date.now().toString(32);
@@ -227,13 +227,13 @@ if(commander.server){
 	clientProxyList.set('default',new dangocoClientProxy(dangocoConfig,proxyConfig));
 }
 
-function calcConnection(clientProxy){
-	let c=0;
-	for(let [n,client] of clientProxy.clients){
-		c+=client.proxyList.size;
-	}
-	return c;
-}
+
+
+
+
+
+
+
 
 /*-------socks server--------*/
 let socks5Server,dangocoUDPTools,pump;
@@ -305,21 +305,6 @@ class socksProxyServer{
 
 		if(type==='tcp'){
 			proxy.proxy('tcp',address,port,socket,stream=>{
-				/*if(stream instanceof Error){
-					socket.destroy(stream);
-					return;
-				}
-				let err=null;
-				stream.once('data',data=>{
-					stream.unshift(data);
-					pump(socket,stream.agent.outStream);
-					pump(stream.agent.inStream,socket);
-					CMD_REPLY();
-				}).once('error',e=>{
-					CMD_REPLY(0x01);
-
-				});*/
-
 				CMD_REPLY();
 			});
 		}else if(type==='udp'){

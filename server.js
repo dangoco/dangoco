@@ -64,12 +64,12 @@ const server=new dangocoServer(serverOptions,(...args)=>{
 
 server.on('proxy_open',proxy=>{
 	let set=server.userProxy.get(proxy.user);
-	Log&&console.log(`[${proxy.head.type}]`,`[${proxy.user}](🔗 ${set?set.size:0})`,_targetString(proxy.head));
+	Log&&console.log(`[${proxy.head.type}]`,`[${proxy.user}](<-> ${set?set.size:0})`,_targetString(proxy.head));
 }).on('proxy_close',proxy=>{
 	let set=server.userProxy.get(proxy.user);
 	let inSize=byteSize(proxy.agent.in),
 		outSize=byteSize(proxy.agent.out);
-	Log&&console.log(`[${proxy.head.type}]`,`[${proxy.user}](🔗 ${set?set.size:0})`,`[↑${inSize.value}${inSize.unit},↓${outSize.value}${outSize.unit}]`,_targetString(proxy.head),'closed');
+	Log&&console.log(`[${proxy.head.type}]`,`[${proxy.user}](<-> ${set?set.size:0})`,`[↑${inSize.value}${inSize.unit},↓${outSize.value}${outSize.unit}]`,_targetString(proxy.head),'closed');
 }).on('proxy_error',(proxy,e)=>{
 	Log&&console.error(`[${proxy.head.type}]`,`[${proxy.user}]`,'error',_targetString(proxy.head),(e instanceof Error)?e.message:e);
 }).on('verify_failed',info=>{
