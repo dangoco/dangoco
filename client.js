@@ -15,17 +15,17 @@ commander
 	.option('-s, --server [value]', 'server address. example: ws://127.0.0.1:80')
 	.option('-u, --user [value]', 'username')
 	.option('-p, --pass [value]', 'password')
-	.option('--keyLength', 'set the byteLength of ramdon key(for encryption),max is 128. default: 33')
+	.option('--keyLength', 'set the byteLength of ramdon key(for encryption),max is 128. default: 33',Number)
 	//socks options
 	.option('--socksHost [value]', 'listen on the host for socks proxy. example: 127.0.0.1')
-	.option('--socksPort <n>', 'listen on the port for socks proxy. example: 1080')
+	.option('--socksPort <n>', 'listen on the port for socks proxy. example: 1080',Number)
 	//connections options
 	.option('-a, --algo [value]', 'encryption algorithm,defaults to undefined. This should only be set in the insecurity connection')
 	.option('--algolist', 'list all available algorithms')
-	.option('-I, --idle <n>', 'idleTimeout,the connection will be automatically close after this idle seconds. Defaults to 15.')
-	////.option('--udpInTunnel', 'deliver udp packet in tunnel')
+	.option('-I, --idle <n>', 'idleTimeout,the connection will be automatically close after this idle seconds. Defaults to 15.',Number)
+	////.option('--udpInTunnel', 'deliver udp packet in tunnel',)
 	.option('--disable-deflate', 'disable websocket deflate')
-	.option('--keepBrokenTunnel', 'seconds for not closing the tunnel when connection lost.(for bad network conditions)')
+	.option('--keepBrokenTunnel', 'seconds for not closing the tunnel when connection lost.(for bad network conditions)',Number)
 	.option('--connectionPerRequest', 'create a connection for every request')
 	.option('--connectionPerTarget', 'create a connection for every target')
 	.option('--connectionPerTCP', 'create a connection for every tcp request')
@@ -45,7 +45,8 @@ if(commander.algolist){//list all available algorithms
 /*ーーーーーstart of the clientーーーーー*/
 const Log=commander.L;//log switch
 
-
+//prevent node from exiting
+setInterval(()=>{},0xFFFFF);
 
 process.on('uncaughtException',function(e){//prevent client from stoping when uncaughtException occurs
 	console.error(e);
@@ -128,8 +129,6 @@ class dangocoClientProxy{
 		this.dangocoConfig=Object.assign({},dangocoConfig);
 		this.proxyConfig=Object.assign({},proxyConfig);
 		this.clients=new Map();
-		//prevent node from exiting
-		this._refTimer=setInterval(()=>{},0xFFFFFFF);
 
 	}
 	proxy(protocol,addr,port,stream,callback){
@@ -144,7 +143,7 @@ class dangocoClientProxy{
 				ws:{
 					perMessageDeflate:!commander.disableDeflate,
 				},
-				keepBrokenTunnel:this.dangocoConfig.keepBrokenTunnel*1000,
+				keepBrokenTunnel:this.dangocoConfig.keepBrokenTunnel*1000,//to milliseconds
 				idleTimeout:this.dangocoConfig.idle*1000,//to milliseconds
 			},{
 				udpInTunnel:this.dangocoConfig.udpInTunnel,
@@ -182,15 +181,8 @@ class dangocoClientProxy{
 
 			this.clients.set(clientName,client);
 		}
-		if(!client.tunnelCreated){
-			client.once('tunnel_open',()=>{
-				callback(client.proxy(protocol,addr,port,stream));
-				return;
-			});
-		}else{
-			callback(client.proxy(protocol,addr,port,stream));
-			return;
-		}
+
+		client.proxy(protocol,addr,port,stream,callback);
 	}
 	calcConnection(){
 		let c=0;
@@ -221,6 +213,11 @@ class dangocoClientProxy{
 		if(!multiConnection && this.clients.has(name))
 			return this._getClientInfo(protocol,addr,port);
 		return [name,multiConnection?'subStream':'stream'];//use stream mode for private tunnel,subStream mode for mixed tunnel
+	}
+	close(code=1000,reason='Closing proxy'){
+		for(let [n,c] of this.clients){
+			c.close(code,reason);
+		}
 	}
 }
 if(commander.server){
@@ -304,11 +301,15 @@ class socksProxyServer{
 		}
 
 		if(type==='tcp'){
-			proxy.proxy('tcp',address,port,socket,stream=>{
-				CMD_REPLY();
+			proxy.proxy('tcp',address,port,socket,(err,stream)=>{
+				if(!err)
+					CMD_REPLY();
+				else
+					CMD_REPLY(0x01);
 			});
 		}else if(type==='udp'){
-			proxy.proxy('udp',address,port,socket,udpDeliver=>{
+			proxy.proxy('udp',address,port,socket,(err,udpDeliver)=>{
+				if(err)return CMD_REPLY(0x01);
 				udpDeliver.once('ready',()=>{
 					let relay=new socks5Server.UDPRelay(socket, port, address, CMD_REPLY);
 					relay.on('clientMessage',frame=>{//msg from client

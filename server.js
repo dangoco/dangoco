@@ -11,14 +11,18 @@ const commander = require('commander');
 commander
 	.usage('[options]')
 	.version(`dangoco version: ${require('./package.json').version}`)
+	//server
 	.option('-h, --host [value]', 'listen on the host for in coming proxy request. for example: 127.0.0.1')
 	.option('-p, --port <n>', 'listen on the port for in coming proxy request. for example: 80',Number)
-	.option('-C, --control [value]', 'controller access code. this option wil enable the control api')
-	.option('-L', 'display connection logs')
+	.option('--enable-deflate', 'enable websocket deflate')
+	.option('--disable-block <items>', 'disable specific block rules',v=>v.split(','))
+	//user
 	.option('-u, --user [value]', 'user json. [["user","pass"],...]',v=>{try{return JSON.parse(v);}catch(e){console.log('user json:',v);throw('user parsing error:',e);}})
 	.option('--user-file [value]', 'load a user json file. Same format as ↑')
+	//other
 	.option('--algolist', 'list all available algorithms')
-	.option('--disable-block <items>', 'disable specific block rules',v=>v.split(','))
+	// .option('-C, --control [value]', 'controller access code. this option wil enable the control api')
+	.option('-L', 'display connection logs')
 	.parse(process.argv);
 
 
@@ -41,7 +45,7 @@ const {dangocoServer} = require('./lib/server.js'),
 const serverOptions={
 	host:commander.host || '127.0.0.1',
 	port:commander.port || 80,
-	perMessageDeflate:true,
+	perMessageDeflate:!!commander.enableDeflate,
 };
 
 const server=new dangocoServer(serverOptions,(...args)=>{
