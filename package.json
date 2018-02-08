@@ -30,6 +30,6 @@
     "ip": "^1.1.5",
     "pump": "^3.0.0",
     "socks5server": "^4.0.5",
-    "ws-stream-tunnel": "^0.4.18"
+    "ws-stream-tunnel": "^0.4.19"
   }
 }
