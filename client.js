@@ -25,7 +25,7 @@ commander
 	.option('-I, --idle <n>', 'idleTimeout,the connection will be automatically close after this idle seconds. Defaults to 15.',Number)
 	////.option('--udpInTunnel', 'deliver udp packet in tunnel',)
 	.option('--disable-deflate', 'disable websocket deflate')
-	.option('--keepBrokenTunnel', 'seconds for not closing the tunnel when connection lost.(for bad network conditions)',Number)
+	.option('--keepBrokenTunnel <n>', 'seconds for not closing the tunnel when connection lost.(for bad network conditions)',Number)
 	.option('--connectionPerRequest', 'create a connection for every request')
 	.option('--connectionPerTarget', 'create a connection for every target')
 	.option('--connectionPerTCP', 'create a connection for every tcp request')
