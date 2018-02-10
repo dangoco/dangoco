@@ -19,6 +19,8 @@ commander
 	//user
 	.option('-u, --user [value]', 'user json. [["user","pass"],...]',v=>{try{return JSON.parse(v);}catch(e){console.log('user json:',v);throw('user parsing error:',e);}})
 	.option('--user-file [value]', 'load a user json file. Same format as ↑')
+	//proxy
+	.option('--maxBrokenTunnelTimeout <n>', 'max timeout seconds allowed for broken tunnel. default: 15',Number)
 	//other
 	.option('--algolist', 'list all available algorithms')
 	// .option('-C, --control [value]', 'controller access code. this option wil enable the control api')
@@ -46,6 +48,7 @@ const serverOptions={
 	host:commander.host || '127.0.0.1',
 	port:commander.port || 80,
 	perMessageDeflate:!!commander.enableDeflate,
+	maxBrokenTunnelTimeout:commander.maxBrokenTunnelTimeout>=0?commander.maxBrokenTunnelTimeout:15,
 };
 
 const server=new dangocoServer(serverOptions,(...args)=>{
