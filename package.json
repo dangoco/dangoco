@@ -1,6 +1,6 @@
 {
   "name": "dangoco",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "A proxy over websocket",
   "main": "index.js",
   "scripts": {
