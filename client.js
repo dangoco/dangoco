@@ -169,7 +169,7 @@ class dangocoClientProxy{
 					let io=info.tunnelStream?{in:info.tunnelStream.agent.in,out:info.tunnelStream.agent.out}:{in:0,out:0};
 					let inSize=byteSize(io.in),
 						outSize=byteSize(io.out);
-					Log&&console.log('[proxy close]',`(<-> ${this.calcConnection()})`,`(${info.type})`,`[↑${outSize.value}${outSize.unit},↓${inSize.value}${inSize.unit}]`,`${_targetString(info.addr,info.port)}`);
+					Log&&console.log('[proxy close]',`(<-> ${this.calcConnection()})`,`(${info.type})`,`[↑${outSize.value}${outSize.unit},↓${inSize.value}${inSize.unit} life:${formatTime((Date.now()-info.tunnelStream.agent.time)/1000)}]`,`${_targetString(info.addr,info.port)}`);
 				}
 			}).on('proxy_error',(info,e)=>{
 				Log&&console.error('[proxy error]',`(${info.type})`,`${_targetString(info.addr,info.port)}`,(e instanceof Error)?e.message:e)
@@ -345,6 +345,16 @@ function _domainName(addr){
 function _targetString(addr,port){
 	if(addr)return `${addr}:${port}`;
 	return 'unknown target';
+}
+function formatTime(sec,total=sec){
+	sec|=sec;
+	let r,
+		s=sec|0,
+		h=(s/3600)|0;
+	if(total>=3600)s=s%3600;
+	r=[String((s/60)|0).padStart(2,'0'),String(s%60).padStart(2,'0')];
+	(total>=3600)&&r.unshift(String(h).padStart(2,'0'));
+	return r.join(':');
 }
 
 if(commander.socksHost || commander.socksPort){
