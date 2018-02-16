@@ -330,7 +330,7 @@ class socksProxyServer{
 		switch(this.options.map.type){
 			case 'default':{dP=clientProxyList.first();break;}
 			case 'random':{dP=clientProxyList.random();break;}
-			case 'name':{dP=clientProxyList.map.get(this.options.map.name);break;}
+			case 'name':{dP=clientProxyList.map.get(this.options.map.name)||false;break;}
 			case 'rule':{
 				//todo
 				break;
