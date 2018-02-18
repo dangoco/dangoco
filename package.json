@@ -30,7 +30,7 @@
     "ip": "^1.1.5",
     "pump": "^3.0.0",
     "socks5server": "^4.0.5",
-    "ws-stream-tunnel": "^0.4.26"
+    "ws-stream-tunnel": "^0.4.27"
   },
   "devDependencies": {
     "debug": "^3.1.0"
